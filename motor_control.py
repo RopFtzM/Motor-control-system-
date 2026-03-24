@@ -85,10 +85,19 @@ class BoardController:
     def connect(self, port: str) -> bool:
         try:
             self.port = port
-            self.ser = serial.Serial(port, 115200, timeout=0.02)
+            self.ser = serial.Serial(port, 115200, timeout=0.05)
+
+            # Arduino 打开串口后通常会自动复位，等它稳定
+            time.sleep(1.8)
+
+            # 清掉复位阶段和历史缓存
+            self.ser.reset_input_buffer()
+            self.ser.reset_output_buffer()
+
             self.running = True
             self.thread = threading.Thread(target=self.control_loop, daemon=True)
             self.thread.start()
+
             self.log(f"[{self.name}] 连接成功: {port}")
             return True
         except Exception as e:
