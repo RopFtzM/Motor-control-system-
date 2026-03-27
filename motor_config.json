@@ -4,15 +4,15 @@
     "rest": { "up": 0, "down": 0 }
   },
   "ring": {
-    "press": { "up": 4000, "down": 4000 },
+    "press": { "up": -4000, "down": 4000 },
     "rest": { "up": 0, "down": 0 }
   },
   "middle": {
-    "press": { "up": 4000, "down": 4000 },
+    "press": { "up": 5000, "down": -5000 },
     "rest": { "up": 0, "down": 0 }
   },
   "index": {
-    "press": { "up": 4000, "down": 4000 },
+    "press": { "up": 4000, "down": -4000 },
     "rest": { "up": 0, "down": 0 }
   }
 }
