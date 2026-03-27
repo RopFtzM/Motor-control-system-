@@ -44,6 +44,7 @@ class ModernRobotApp:
         self.root.after(50, self.update_monitor_loop)
         self.root.protocol("WM_DELETE_WINDOW", self.on_close)
 
+
     # ---------- config ----------
     def load_motor_config(self):
         self.motor_cfg = self.controller.motor_cfg
@@ -56,7 +57,7 @@ class ModernRobotApp:
             ent_up.insert(0, "0")
             ent_down.delete(0, tk.END)
             ent_down.insert(0, "0")
-            
+
     # ---------- motor API ----------
     def motor(self, finger, state: str):
         if state not in ("press", "rest"):
@@ -218,7 +219,7 @@ class ModernRobotApp:
         self.create_slider(gf, "Kp (比例)", 0, 0.5, 0.05, 0, self.update_pid)
         self.create_slider(gf, "Ki (积分)", 0, 0.05, 0.00, 1, self.update_pid)
         self.create_slider(gf, "Kd (微分)", 0, 0.5, 0.01, 2, self.update_pid)
-        self.create_slider(gf, "Deadzone (死区)", 0, 200, 30, 3, self.update_pid)
+        self.create_slider(gf, "Deadzone (死区)", 0, 200, 60, 3, self.update_pid)
         self.create_slider(gf, "MinPWM (最小有效PWM)", 0, 80, 0, 4, self.update_pid)
 
     def create_slider(self, parent, title, min_v, max_v, def_v, col, cb):
