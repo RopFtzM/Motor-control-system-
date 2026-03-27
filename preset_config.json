@@ -1,0 +1,15 @@
+{
+  "relax": {
+    "pinky": { "up": 0, "down": 0 },
+    "ring": { "up": 0, "down": 0 },
+    "middle": { "up": 0, "down": 0 },
+    "index": { "up": 0, "down": 0 }
+  },
+  "pinch": {
+    "index": { "up": 4500, "down": -4500 },
+    "middle": { "up": 1200, "down": -1200 }
+  },
+  "index_press": {
+    "index": { "up": 5000, "down": -5000 }
+  }
+}
