@@ -59,6 +59,12 @@ class BoardController:
         self.target = [0, 0, 0, 0]
         self.pid = [PIDController() for _ in range(4)]
 
+        # 编码器方向修正：默认把每对手指中的“后/下”电机翻转。
+        # 若某一路方向仍不对，可按实测改成 1 或 -1。
+        # 板子A: [小上, 小后, 无上, 无后]
+        # 板子B: [中上, 中后, 食上, 食后]
+        self.enc_signs = [-1, -1, -1, -1]
+
         self.deadzone = 30
         self.min_pwm = 0
 
@@ -173,6 +179,8 @@ class BoardController:
             vals = [int(x) for x in parts]
         except ValueError:
             return
+
+        vals = [vals[i] * self.enc_signs[i] for i in range(4)]
 
         with self.lock:
             self.pos = vals
