@@ -73,6 +73,7 @@ class StdinSequenceRunner:
                     self.board_enabled["board_a"] = bool(ok)
                     if ok:
                         self.log(f"[板子A] 已启用：{port_a}")
+                        self.rc.board_a.update_pid_params(0.05, 0.0, 0.001, 60, 0) 
                     else:
                         self.log(f"[板子A] 连接失败，已禁用：{port_a}")
                 except Exception as e:
@@ -89,6 +90,7 @@ class StdinSequenceRunner:
                     self.board_enabled["board_b"] = bool(ok)
                     if ok:
                         self.log(f"[板子B] 已启用：{port_b}")
+                        self.rc.board_b.update_pid_params(0.05, 0.0, 0.001, 60, 0) 
                     else:
                         self.log(f"[板子B] 连接失败，已禁用：{port_b}")
                 except Exception as e:
