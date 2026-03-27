@@ -48,14 +48,15 @@ class ModernRobotApp:
     def load_motor_config(self):
         self.motor_cfg = self.controller.motor_cfg
         self.log(f"[Config] 已加载: {self.controller.motor_config_path}")
-        # 用 press 默认值同步到输入框，更接近旧版初始感受
-        for i, finger in enumerate(self.fingers):
-            cfg = self.motor_cfg.get(finger["key"], {})
-            press = cfg.get("press", {"up": 0, "down": 0})
-            ent_up, ent_down = self.ui_entries[i]
-            ent_up.delete(0, tk.END); ent_up.insert(0, str(int(press.get("up", 0))))
-            ent_down.delete(0, tk.END); ent_down.insert(0, str(int(press.get("down", 0))))
 
+        # 启动时严格从零开始，不把 press 默认值写入输入框
+        for i in range(len(self.fingers)):
+            ent_up, ent_down = self.ui_entries[i]
+            ent_up.delete(0, tk.END)
+            ent_up.insert(0, "0")
+            ent_down.delete(0, tk.END)
+            ent_down.insert(0, "0")
+            
     # ---------- motor API ----------
     def motor(self, finger, state: str):
         if state not in ("press", "rest"):
