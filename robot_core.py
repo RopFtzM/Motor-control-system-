@@ -14,7 +14,7 @@ FINGER_KEYS = {
 
 
 class PIDController:
-    def __init__(self, kp=0.3, ki=0.0, kd=0.0):
+    def __init__(self, kp=0.05, ki=0.0, kd=0.01):
         self.kp = kp
         self.ki = ki
         self.kd = kd
