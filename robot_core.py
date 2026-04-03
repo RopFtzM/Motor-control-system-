@@ -252,12 +252,9 @@ class RobotController:
         self.board_a = BoardController("板子A(小/无)", board_a_port, logger=self.logger)
         self.board_b = BoardController("板子B(中/食)", board_b_port, logger=self.logger)
 
-        self.finger_map = {
-            "pinky": ("board_a", 0, 1),
-            "ring": ("board_a", 2, 3),
-            "middle": ("board_b", 0, 1),
-            "index": ("board_b", 2, 3),
-        }
+        self.swap_index_middle = False
+        self.finger_map = {}
+        self.rebuild_finger_map()
 
         self.finger_alias = {
             "小指": "pinky",
@@ -275,6 +272,31 @@ class RobotController:
 
         self.motor_cfg = self.load_motor_config()
         self.preset_cfg = self.load_preset_config()
+
+    def rebuild_finger_map(self):
+        self.finger_map = {
+            "pinky": ("board_a", 0, 1),
+            "ring": ("board_a", 2, 3),
+        }
+
+        if self.swap_index_middle:
+            # 互换后：板B前一对电机控制食指，后一对电机控制中指
+            self.finger_map.update({
+                "index": ("board_b", 0, 1),
+                "middle": ("board_b", 2, 3),
+            })
+        else:
+            # 默认：板B前一对电机控制中指，后一对电机控制食指
+            self.finger_map.update({
+                "middle": ("board_b", 0, 1),
+                "index": ("board_b", 2, 3),
+            })
+
+    def set_board_b_swap(self, enabled: bool):
+        self.swap_index_middle = bool(enabled)
+        self.rebuild_finger_map()
+        state = "开启" if self.swap_index_middle else "关闭"
+        self.logger(f"[mapping] 板B 食指/中指上下互换: {state}")
 
     def normalize_finger(self, finger: str):
         finger = finger.strip().lower()
