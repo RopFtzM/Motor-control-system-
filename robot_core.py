@@ -52,6 +52,8 @@ class BoardController:
         self.min_pwm = 0
         self.debug_serial = True
         self._debug_last_rx_log = 0.0
+        self.has_valid_pos = False
+        self.hold_on_connect = True
 
         self.lock = threading.Lock()
 
@@ -181,6 +183,7 @@ class BoardController:
 
         with self.lock:
             self.pos = vals
+            self.has_valid_pos = True
 
         now = time.time()
         if self.debug_serial and now - self._debug_last_rx_log > 0.3:
@@ -214,6 +217,24 @@ class BoardController:
                 now = time.time()
                 dt = now - last_t
                 last_t = now
+
+                with self.lock:
+                    has_valid_pos = self.has_valid_pos
+                    cur_pos = list(self.pos)
+
+                if not has_valid_pos:
+                    self.send_pwm([0, 0, 0, 0])
+                    time.sleep(0.03)
+                    continue
+
+                # 首次拿到有效编码器后，默认锁定当前位置，避免一连接就被 target=0 拉走
+                if self.hold_on_connect:
+                    with self.lock:
+                        self.target = list(self.pos)
+                    for c in self.pid:
+                        c.reset()
+                    self.hold_on_connect = False
+                    self.logger(f"[{self.name}] 已锁定当前位置为初始目标，避免启动瞬间跳动")
 
                 with self.lock:
                     errors = [self.target[i] - self.pos[i] for i in range(4)]
