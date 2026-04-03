@@ -6,10 +6,10 @@ import serial
 
 
 FINGER_KEYS = {
-    "a": "index",   # 食指
-    "s": "middle",  # 中指
-    "d": "ring",    # 无名指
-    "f": "pinky",   # 小指
+    "a": "index",
+    "s": "middle",
+    "d": "ring",
+    "f": "pinky",
 }
 
 
@@ -33,18 +33,6 @@ class PIDController:
 
 
 class BoardController:
-    """
-    单块板控制器：
-    - 打开串口
-    - 接收 P:pos1,pos2,pos3,pos4
-    - 根据 target 做 PID
-    - 发送 C:p1,p2,p3,p4
-    兼容旧接口：
-    - connect() 返回 bool
-    - get_pos()
-    - update_pid_params()
-    """
-
     def __init__(self, name, port=None, logger=print, baudrate=115200):
         self.name = name
         self.port = port
@@ -58,15 +46,12 @@ class BoardController:
         self.pos = [0, 0, 0, 0]
         self.target = [0, 0, 0, 0]
         self.pid = [PIDController() for _ in range(4)]
-
-        # 编码器方向修正：默认把每对手指中的“后/下”电机翻转。
-        # 若某一路方向仍不对，可按实测改成 1 或 -1。
-        # 板子A: [小上, 小后, 无上, 无后]
-        # 板子B: [中上, 中后, 食上, 食后]
         self.enc_signs = [-1, -1, -1, -1]
 
         self.deadzone = 30
         self.min_pwm = 0
+        self.debug_serial = True
+        self._debug_last_rx_log = 0.0
 
         self.lock = threading.Lock()
 
@@ -82,6 +67,19 @@ class BoardController:
                 return True
 
             self.ser = serial.Serial(self.port, self.baudrate, timeout=0.05)
+
+            # 关键：很多 Arduino/MEGA 打开串口会自动复位。
+            # 如果不等它起来，Python 线程会过早开始读写，导致前几帧 P: 丢失或状态异常。
+            time.sleep(1.8)
+            self.ser.reset_input_buffer()
+            self.ser.reset_output_buffer()
+
+            # 主动发一次停止，确保刚连上时不会残留历史状态
+            try:
+                self.ser.write(b"C:0,0,0,0\n")
+            except Exception:
+                pass
+
             self.running = True
             self.thread = threading.Thread(target=self._loop, daemon=True)
             self.thread.start()
@@ -140,7 +138,6 @@ class BoardController:
         with self.lock:
             return self.pos[motor_idx]
 
-    # 旧接口别名
     def get_pos(self, motor_idx):
         return self.get_position(motor_idx)
 
@@ -170,20 +167,26 @@ class BoardController:
 
     def _read_position_line(self, line):
         if not line.startswith("P:"):
-            return
+            return False
         body = line[2:].strip()
         parts = body.split(",")
         if len(parts) != 4:
-            return
+            return False
         try:
             vals = [int(x) for x in parts]
         except ValueError:
-            return
+            return False
 
         vals = [vals[i] * self.enc_signs[i] for i in range(4)]
 
         with self.lock:
             self.pos = vals
+
+        now = time.time()
+        if self.debug_serial and now - self._debug_last_rx_log > 0.3:
+            self._debug_last_rx_log = now
+            self.logger(f"[{self.name}] RX P: {vals}")
+        return True
 
     def _apply_deadzone_min_pwm(self, u):
         if abs(u) <= self.deadzone:
@@ -197,10 +200,16 @@ class BoardController:
 
         while self.running and self.ser is not None:
             try:
-                if self.ser.in_waiting:
-                    line = self.ser.readline().decode("utf-8", errors="ignore").strip()
-                    if line:
-                        self._read_position_line(line)
+                latest_line = None
+                while self.ser.in_waiting:
+                    raw = self.ser.readline().decode("utf-8", errors="ignore").strip()
+                    if raw.startswith("P:"):
+                        latest_line = raw
+                    elif raw:
+                        self.logger(f"[{self.name}] RX other: {raw}")
+
+                if latest_line:
+                    self._read_position_line(latest_line)
 
                 now = time.time()
                 dt = now - last_t
@@ -225,18 +234,6 @@ class BoardController:
 
 
 class RobotController:
-    """
-    高层控制器：
-    - 管两块板
-    - 管手指映射
-    - 管 press / rest
-    - 管 preset
-    兼容旧接口：
-    - __init__(log_func=...)
-    - connect_all() 返回 bool
-    - global_reset()
-    """
-
     def __init__(
         self,
         board_a_port="COM11",
@@ -246,15 +243,17 @@ class RobotController:
         logger=None,
         log_func=None,
     ):
-        # logger / log_func 二选一，兼容旧代码
         self.logger = logger or log_func or print
 
         self.board_a = BoardController("板子A(小/无)", board_a_port, logger=self.logger)
         self.board_b = BoardController("板子B(中/食)", board_b_port, logger=self.logger)
 
-        self.swap_index_middle = False
-        self.finger_map = {}
-        self.rebuild_finger_map()
+        self.finger_map = {
+            "pinky": ("board_a", 0, 1),
+            "ring": ("board_a", 2, 3),
+            "middle": ("board_b", 0, 1),
+            "index": ("board_b", 2, 3),
+        }
 
         self.finger_alias = {
             "小指": "pinky",
@@ -272,31 +271,6 @@ class RobotController:
 
         self.motor_cfg = self.load_motor_config()
         self.preset_cfg = self.load_preset_config()
-
-    def rebuild_finger_map(self):
-        self.finger_map = {
-            "pinky": ("board_a", 0, 1),
-            "ring": ("board_a", 2, 3),
-        }
-
-        if self.swap_index_middle:
-            # 互换后：板B前一对电机控制食指，后一对电机控制中指
-            self.finger_map.update({
-                "index": ("board_b", 0, 1),
-                "middle": ("board_b", 2, 3),
-            })
-        else:
-            # 默认：板B前一对电机控制中指，后一对电机控制食指
-            self.finger_map.update({
-                "middle": ("board_b", 0, 1),
-                "index": ("board_b", 2, 3),
-            })
-
-    def set_board_b_swap(self, enabled: bool):
-        self.swap_index_middle = bool(enabled)
-        self.rebuild_finger_map()
-        state = "开启" if self.swap_index_middle else "关闭"
-        self.logger(f"[mapping] 板B 食指/中指上下互换: {state}")
 
     def normalize_finger(self, finger: str):
         finger = finger.strip().lower()
