@@ -269,7 +269,7 @@ class RobotController:
         self.board_a = BoardController("板子A(小/无)", board_a_port, logger=self.logger)
         self.board_b = BoardController("板子B(中/食)", board_b_port, logger=self.logger)
 
-        self.swap_index_middle = False
+        self.swap_board_b_updown = False
         self.finger_map = {}
         self.rebuild_finger_map()
 
@@ -296,10 +296,10 @@ class RobotController:
             "ring": ("board_a", 2, 3),
         }
 
-        if self.swap_index_middle:
+        if self.swap_board_b_updown:
             self.finger_map.update({
-                "index": ("board_b", 0, 1),
-                "middle": ("board_b", 2, 3),
+                "middle": ("board_b", 1, 0),
+                "index": ("board_b", 3, 2),
             })
         else:
             self.finger_map.update({
@@ -307,11 +307,15 @@ class RobotController:
                 "index": ("board_b", 2, 3),
             })
 
-    def set_board_b_swap(self, enabled: bool):
-        self.swap_index_middle = bool(enabled)
+    def set_board_b_updown_swap(self, enabled: bool):
+        self.swap_board_b_updown = bool(enabled)
         self.rebuild_finger_map()
-        state = "开启" if self.swap_index_middle else "关闭"
-        self.logger(f"[mapping] 板B 食指/中指上下互换: {state}")
+        state = "开启" if self.swap_board_b_updown else "关闭"
+        self.logger(f"[mapping] 板B上下电机对调: {state}")
+
+    def set_board_b_swap(self, enabled: bool):
+        # 兼容旧调用名；实际语义是“板B每根手指的上下电机对调”
+        self.set_board_b_updown_swap(enabled)
 
     def normalize_finger(self, finger: str):
         finger = finger.strip().lower()
