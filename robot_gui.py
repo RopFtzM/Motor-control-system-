@@ -26,13 +26,9 @@ class ModernRobotApp:
         self.board_A = self.controller.board_a
         self.board_B = self.controller.board_b
 
-        # 顺序与旧版完全保持一致：0小 1无 2中 3食
-        self.fingers = [
-            {"name": "小指 (Pinky)", "key": "pinky", "board": self.board_A, "ids": [0, 1]},
-            {"name": "无名指 (Ring)", "key": "ring", "board": self.board_A, "ids": [2, 3]},
-            {"name": "中指 (Middle)", "key": "middle", "board": self.board_B, "ids": [0, 1]},
-            {"name": "食指 (Index)", "key": "index", "board": self.board_B, "ids": [2, 3]},
-        ]
+        self.swap_var = tk.BooleanVar(value=False)
+        self.fingers = []
+        self.refresh_finger_layout()
 
         self.ui_entries = []
         self.ui_monitors = []
@@ -43,6 +39,17 @@ class ModernRobotApp:
         self.bind_hotkeys()
         self.root.after(50, self.update_monitor_loop)
         self.root.protocol("WM_DELETE_WINDOW", self.on_close)
+
+    def refresh_finger_layout(self):
+        # 顺序保持：0小 1无 2中 3食；仅板B的ids按开关互换
+        board_b_middle_ids = [2, 3] if self.controller.swap_index_middle else [0, 1]
+        board_b_index_ids = [0, 1] if self.controller.swap_index_middle else [2, 3]
+        self.fingers = [
+            {"name": "小指 (Pinky)", "key": "pinky", "board": self.board_A, "ids": [0, 1]},
+            {"name": "无名指 (Ring)", "key": "ring", "board": self.board_A, "ids": [2, 3]},
+            {"name": "中指 (Middle)", "key": "middle", "board": self.board_B, "ids": board_b_middle_ids},
+            {"name": "食指 (Index)", "key": "index", "board": self.board_B, "ids": board_b_index_ids},
+        ]
 
 
     # ---------- config ----------
@@ -131,6 +138,13 @@ class ModernRobotApp:
         ttk.Separator(conn_frame, orient=tk.VERTICAL).grid(row=0, column=4, sticky="ns", padx=20)
         self.create_conn_ui(conn_frame, self.board_B, self.board_B.port, 5)
 
+        ttk.Checkbutton(
+            conn_frame,
+            text="板B：食指/中指上下互换",
+            variable=self.swap_var,
+            command=self.on_toggle_swap,
+        ).grid(row=1, column=0, columnspan=9, sticky="w", padx=5, pady=(8, 0))
+
         self.notebook = ttk.Notebook(self.root)
         self.notebook.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
 
@@ -163,6 +177,12 @@ class ModernRobotApp:
 
         btn = ttk.Button(parent, text="连接", command=lambda: self.toggle_conn(board, ent, btn, lbl))
         btn.grid(row=0, column=col + 3)
+
+    def on_toggle_swap(self):
+        enabled = bool(self.swap_var.get())
+        self.controller.set_board_b_swap(enabled)
+        self.refresh_finger_layout()
+        self.log("[UI] 已切换板B食指/中指映射；建议先在零位下测试一次再正常使用")
 
     def setup_operations_tab(self, parent):
         f = ttk.Frame(parent, padding=10)
