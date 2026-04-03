@@ -33,6 +33,7 @@ def build_parser():
     p.add_argument("--portb", default="COM8", help="板子B串口")
     p.add_argument("--gap", type=float, default=0.2, help="每一步结束后额外停顿时间（秒）")
     p.add_argument("--tail", type=float, default=0.5, help="全部动作完成后回到 relax 前的停顿时间（秒）")
+    p.add_argument("--swap-b", action="store_true", help="互换板B上的食指/中指上下映射")
     return p
 
 
@@ -84,6 +85,7 @@ def main():
         parser.error(str(e))
 
     rc = RobotController(board_a_port=args.porta, board_b_port=args.portb, log_func=print)
+    rc.set_board_b_swap(args.swap_b)
 
     try:
         if not rc.connect_all():
